@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        
+        <!-- Purchase Order Form View -->
+        <record id="purchase_order_form_inherit_approval" model="ir.ui.view">
+            <field name="name">purchase.order.form.inherit.approval</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.purchase_order_form"/>
+            <field name="arch" type="xml">
+                
+                <!-- Override status bar untuk menampilkan state approval yang lebih spesifik -->
+                <xpath expr="//field[@name='state']" position="replace">
+                    <field name="state" widget="statusbar" 
+                            statusbar_visible="draft,manager_approval,dept_head_approval,cfo_approval,purchase" 
+                            readonly="1"/>
+                </xpath>
+                
+                <!-- Hide semua button Confirm Order dari bawaan Odoo -->
+                <xpath expr="//button[@name='button_confirm' and @id='draft_confirm']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                
+                <xpath expr="//button[@name='button_confirm' and @id='bid_confirm']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                
+                <xpath expr="//button[@name='button_cancel']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                
+                <!-- Hide button Approve Order bawaan Odoo menggunakan data-hotkey -->
+                <xpath expr="//button[@data-hotkey='z']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                
+                <!-- Hide button Set to Draft dan Lock yang tidak diperlukan -->
+                <xpath expr="//button[@name='button_draft']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                
+                <xpath expr="//button[@name='button_done']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                
+                <xpath expr="//button[@name='button_unlock']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                
+                <!-- Button Approve - hanya muncul untuk user yang bisa approve -->
+                <xpath expr="//button[@name='button_confirm']" position="after">
+                    <button name="action_submit_for_approval" 
+                            type="object" 
+                            string="Submit for Approval" 
+                            class="btn-primary"
+                            invisible="state != 'draft'"/>
+                    <button name="action_approve" 
+                            type="object" 
+                            string="Approve" 
+                            class="btn-success"
+                            invisible="not my_approvals"/>
+                    <button name="action_reject" 
+                            type="object" 
+                            string="Reject" 
+                            class="btn-danger"
+                            invisible="not my_approvals"/>
+                </xpath>
+                
+                <!-- Tambahkan tab approval -->
+                <xpath expr="//notebook" position="inside">
+                    <page string="Approval Information" name="approval_info">
+                        <group>
+                            <group string="Submission Information">
+                                <field name="submitted_by" readonly="1"/>
+                                <field name="submitted_date" readonly="1"/>
+                            </group>
+                            
+                            <group string="Approval Information">
+                                <field name="approved_by_manager" readonly="1"/>
+                                <field name="approved_date_manager" readonly="1"/>
+                                <field name="approved_by_dept_head" readonly="1"/>
+                                <field name="approved_date_dept_head" readonly="1"/>
+                                <field name="approved_by_cfo" readonly="1"/>
+                                <field name="approved_date_cfo" readonly="1"/>
+                            </group>
+                        </group>
+                        
+                        <group string="Rejection Information" invisible="state != 'rejected'">
+                            <field name="rejected_by" readonly="1"/>
+                            <field name="rejected_date" readonly="1"/>
+                            <field name="rejection_reason" readonly="1"/>
+                        </group>
+                    </page>
+                </xpath>
+                
+                <!-- Tambahkan field approval threshold di group field -->
+                <xpath expr="//field[@name='partner_ref']" position="after">
+                    <field name="approval_level" widget="badge" 
+                            decoration-info="approval_level == 'manager'"
+                            decoration-warning="approval_level == 'dept_head'"
+                            decoration-danger="approval_level == 'cfo'"/>
+                    <field name="approval_threshold" widget="badge" 
+                           decoration-info="approval_threshold == 'low'"
+                           decoration-warning="approval_threshold == 'medium'"
+                           decoration-danger="approval_threshold == 'high'"/>
+                </xpath>
+                
+            </field>
+        </record>
+        
+        <!-- Purchase Order Tree View -->
+        <record id="purchase_order_tree_inherit_approval" model="ir.ui.view">
+            <field name="name">purchase.order.tree.inherit.approval</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.purchase_order_tree"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='amount_total']" position="after">
+                    <field name="approval_level" widget="badge" 
+                           decoration-info="approval_level == 'manager'"
+                           decoration-warning="approval_level == 'dept_head'"
+                           decoration-success="approval_level == 'cfo'"/>
+                    <field name="my_approvals" widget="boolean_toggle"/>
+                </xpath>
+            </field>
+        </record>
+        
+        <!-- Purchase Order Search View -->
+        <record id="purchase_order_search_inherit_approval" model="ir.ui.view">
+            <field name="name">purchase.order.search.inherit.approval</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.view_purchase_order_filter"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='partner_id']" position="after">
+                    <field name="approval_level"/>
+                    <field name="approval_threshold"/>
+                    <field name="my_approvals"/>
+                </xpath>
+                <xpath expr="//filter[@name='draft']" position="after">
+                    <filter string="Manager Approval" name="manager_approval" domain="[('state', '=', 'manager_approval')]"/>
+                    <filter string="Department Head Approval" name="dept_head_approval" domain="[('state', '=', 'dept_head_approval')]"/>
+                    <filter string="CFO Approval" name="cfo_approval" domain="[('state', '=', 'cfo_approval')]"/>
+                    <filter string="Approved" name="approved" domain="[('state', '=', 'approved')]"/>
+                    <filter string="Rejected" name="rejected" domain="[('state', '=', 'rejected')]"/>
+                    <separator/>
+                    <filter string="My Approvals" name="my_approvals" domain="[]" context="{'search_default_my_approvals': 1}" help="Show Purchase Orders that need your approval"/>
+                </xpath>
+            </field>
+        </record>
+        
+        <!-- Action untuk My Approvals -->
+        <record id="action_purchase_my_approvals" model="ir.actions.act_window">
+            <field name="name">My Purchase Approvals</field>
+            <field name="res_model">purchase.order</field>
+            <field name="view_mode">list,form</field>
+            <field name="domain">[('state', 'in', ['manager_approval', 'dept_head_approval', 'cfo_approval'])]</field>
+            <field name="context">{'search_default_my_approvals': 1}</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Tidak ada Purchase Order yang memerlukan approval Anda
+                </p>
+            </field>
+        </record>
+        
+        <!-- Menu untuk My Approvals -->
+        <menuitem id="menu_purchase_my_approvals"
+                  name="My Purchase Approvals"
+                  parent="purchase.menu_purchase_root"
+                  action="action_purchase_my_approvals"
+                  sequence="5"/>
+        
+    </data>
+</odoo> 
